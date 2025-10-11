@@ -12,7 +12,7 @@ const getProducts = async (req, res) => {
             page = 1,
             limit = 1000,
             category,
-            status = 'PUBLISHED',
+            status, // No default - let frontend decide
             featured,
             search,
             sort = 'sorting',
@@ -29,7 +29,8 @@ const getProducts = async (req, res) => {
             queryParams.push(category);
         }
 
-        if (status) {
+        // Only filter by status if explicitly provided and not empty
+        if (status && status !== '') {
             whereConditions.push('p.status = ?');
             queryParams.push(status);
         }
