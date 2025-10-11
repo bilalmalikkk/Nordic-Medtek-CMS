@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
 
 // ES module __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -49,10 +50,9 @@ async function ensureAdminUser() {
             const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin123';
             
             // Hash the password using bcrypt
-            const bcrypt = await import('bcryptjs');
             const passwordHash = await bcrypt.hash(adminPassword, parseInt(process.env.BCRYPT_ROUNDS) || 10);
             
-            await db.run(
+            await dbHelpers.run(
                 "INSERT INTO users (username, email, password_hash, role, is_active) VALUES (?, ?, ?, 'admin', 1)",
                 [adminUsername, adminEmail, passwordHash]
             );
