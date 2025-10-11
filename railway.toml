@@ -6,9 +6,8 @@ startCommand = "node server.js"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-# Railway Volume Configuration:
-# In Railway dashboard:
-# 1. Go to Settings > Volumes
-# 2. Add volume with Mount Path: /data
-# 3. Set environment variable: DATABASE_PATH=/data/cms.db
+# Volume configuration for persistent database storage
+[[deploy.volumes]]
+name = "cms-database"
+mountPath = "/data"
 
