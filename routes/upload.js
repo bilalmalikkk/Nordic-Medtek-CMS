@@ -21,19 +21,9 @@ const uploadsDir = process.env.DATABASE_PATH
 const imagesDir = path.join(uploadsDir, 'images');
 const documentsDir = path.join(uploadsDir, 'documents');
 
-console.log('📁 Upload configuration:', {
-    databasePath: process.env.DATABASE_PATH,
-    uploadsDir: uploadsDir,
-    imagesDir: imagesDir,
-    documentsDir: documentsDir
-});
-
 [uploadsDir, imagesDir, documentsDir].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
-        console.log('✅ Created directory:', dir);
-    } else {
-        console.log('📁 Directory already exists:', dir);
     }
 });
 
@@ -149,15 +139,6 @@ router.post('/single', [
                 url: `/uploads/${relativePath}`
             }
         };
-        
-        console.log('✅ File uploaded successfully:', {
-            filename: file.filename,
-            originalName: file.originalname,
-            relativePath: relativePath,
-            fullPath: processedFilePath,
-            url: `/uploads/${relativePath}`,
-            fileType: fileType
-        });
         
         res.json(response);
 
