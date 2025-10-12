@@ -14,10 +14,7 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 
 // Ensure upload directories exist
-// Use persistent volume in Railway, fallback to local uploads
-const uploadsDir = process.env.DATABASE_PATH 
-    ? path.join(path.dirname(process.env.DATABASE_PATH), 'uploads')
-    : path.join(__dirname, '../uploads');
+const uploadsDir = path.join(__dirname, '../uploads');
 const imagesDir = path.join(uploadsDir, 'images');
 const documentsDir = path.join(uploadsDir, 'documents');
 
@@ -139,6 +136,14 @@ router.post('/single', [
                 url: `/uploads/${relativePath}`
             }
         };
+        
+        console.log('✅ Upload successful:', {
+            originalPath: file.path,
+            processedPath: processedFilePath,
+            relativePath: relativePath,
+            finalUrl: `/uploads/${relativePath}`,
+            fileExists: fs.existsSync(processedFilePath)
+        });
         
         res.json(response);
 
