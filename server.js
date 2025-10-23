@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
@@ -43,6 +44,8 @@ const corsOptions = {
             'http://localhost:3000',
             'https://localhost:3000',
             'https://nordic-medtek.vercel.app',
+            'https://www.nordicmedtek.no',
+            'https://nordicmedtek.no',
             process.env.FRONTEND_URL
         ].filter(Boolean); // Remove undefined values
         
@@ -86,7 +89,21 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static files - serve uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Use persistent volume subdirectory in production, local uploads in development
+const uploadsPath = process.env.NODE_ENV === 'production' 
+    ? '/data/uploads' 
+    : path.join(__dirname, 'uploads');
+
+console.log('📁 Uploads path:', uploadsPath);
+console.log('📁 Uploads directory exists:', fs.existsSync(uploadsPath));
+
+// Ensure uploads directory exists
+if (!fs.existsSync(uploadsPath)) {
+    fs.mkdirSync(uploadsPath, { recursive: true });
+    console.log('📁 Created uploads directory');
+}
+
+app.use('/uploads', express.static(uploadsPath));
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -137,8 +154,8 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler for API routes only
+app.use('/api/*', (req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 

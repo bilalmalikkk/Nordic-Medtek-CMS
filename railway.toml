@@ -6,8 +6,8 @@ startCommand = "node server.js"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-# Volume configuration for persistent database storage and uploads
+# Volume configuration for persistent database storage
 [[deploy.volumes]]
-name = "cms-storage"
+name = "cms-database"
 mountPath = "/data"
 

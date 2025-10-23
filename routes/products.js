@@ -164,13 +164,25 @@ const createProduct = async (req, res) => {
             return res.status(400).json({ error: 'Product with this item number already exists' });
         }
 
-        // Generate slug from title or product_name
+        // Generate slug from title or product_name with duplicate handling
         const slugSource = title || product_name || 'untitled';
-        const slug = slugSource.toLowerCase()
+        let baseSlug = slugSource.toLowerCase()
             .replace(/[^a-z0-9\s-]/g, '')
             .replace(/\s+/g, '-')
             .replace(/-+/g, '-')
             .trim('-') || 'untitled';
+        
+        // Check for existing slugs and add suffix if needed
+        let slug = baseSlug;
+        let counter = 1;
+        while (true) {
+            const existingSlug = await queryOne('SELECT id FROM products WHERE slug = ?', [slug]);
+            if (!existingSlug) {
+                break; // Slug is unique
+            }
+            slug = `${baseSlug}-${counter}`;
+            counter++;
+        }
 
         const productData = {
             title,
@@ -251,6 +263,14 @@ const updateProduct = async (req, res) => {
         // Handle boolean conversion for is_featured
         if (cleanedUpdateData.is_featured !== undefined) {
             cleanedUpdateData.is_featured = cleanedUpdateData.is_featured ? 1 : 0;
+        }
+        
+        // Handle slug uniqueness if slug is being updated
+        if (cleanedUpdateData.slug) {
+            const existingSlug = await queryOne('SELECT id FROM products WHERE slug = ? AND id != ?', [cleanedUpdateData.slug, id]);
+            if (existingSlug) {
+                return res.status(400).json({ error: 'Slug already exists' });
+            }
         }
         
         console.log('✅ Cleaned update data:', cleanedUpdateData);
@@ -373,12 +393,21 @@ const debugProducts = async (req, res) => {
             HAVING COUNT(*) > 1
         `);
         
+        // Check for duplicate slugs
+        const duplicateSlugs = await query(`
+            SELECT slug, COUNT(*) as count 
+            FROM products 
+            GROUP BY slug 
+            HAVING COUNT(*) > 1
+        `);
+        
         res.json({
             totalProducts: allProducts.length,
             products: allProducts,
             countByStatus: countByStatus,
             duplicateItemNumbers: duplicateItems,
-            duplicateExternalIds: duplicateExternalIds
+            duplicateExternalIds: duplicateExternalIds,
+            duplicateSlugs: duplicateSlugs
         });
     } catch (error) {
         console.error('Debug products error:', error);
@@ -386,8 +415,66 @@ const debugProducts = async (req, res) => {
     }
 };
 
+// Fix duplicate slugs endpoint
+const fixDuplicateSlugs = async (req, res) => {
+    try {
+        console.log('🔍 Checking for duplicate slugs...');
+        
+        // Check for duplicate slugs
+        const duplicates = await query(`
+            SELECT slug, COUNT(*) as count 
+            FROM products 
+            GROUP BY slug 
+            HAVING COUNT(*) > 1
+        `);
+        
+        if (duplicates.length === 0) {
+            return res.json({ message: 'No duplicate slugs found', duplicates: [] });
+        }
+        
+        console.log('❌ Found duplicate slugs:', duplicates);
+        
+        // Fix duplicate slugs by adding unique suffixes
+        console.log('🔧 Fixing duplicate slugs...');
+        const result = await run(`
+            UPDATE products 
+            SET slug = slug || '-' || id 
+            WHERE id IN (
+                SELECT id FROM products p1 
+                WHERE EXISTS (
+                    SELECT 1 FROM products p2 
+                    WHERE p2.slug = p1.slug 
+                    AND p2.id < p1.id
+                )
+            )
+        `);
+        
+        console.log('✅ Fixed duplicate slugs:', result.changes, 'records updated');
+        
+        // Verify the fix
+        const remainingDuplicates = await query(`
+            SELECT slug, COUNT(*) as count 
+            FROM products 
+            GROUP BY slug 
+            HAVING COUNT(*) > 1
+        `);
+        
+        res.json({
+            message: 'Duplicate slugs fixed',
+            duplicatesFound: duplicates,
+            recordsUpdated: result.changes,
+            remainingDuplicates: remainingDuplicates
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fixing duplicate slugs:', error);
+        res.status(500).json({ error: 'Failed to fix duplicate slugs', details: error.message });
+    }
+};
+
 // Routes
 router.get('/debug', debugProducts);
+router.post('/fix-duplicate-slugs', fixDuplicateSlugs);
 router.get('/', getProducts);
 router.get('/:id', getProduct);
 

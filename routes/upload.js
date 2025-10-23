@@ -14,7 +14,10 @@ const __dirname = path.dirname(__filename);
 const router = express.Router();
 
 // Ensure upload directories exist
-const uploadsDir = path.join(__dirname, '../uploads');
+// Use persistent volume subdirectory in production, local uploads in development
+const uploadsDir = process.env.NODE_ENV === 'production' 
+    ? '/data/uploads' 
+    : path.join(__dirname, '../../../uploads');
 const imagesDir = path.join(uploadsDir, 'images');
 const documentsDir = path.join(uploadsDir, 'documents');
 
@@ -128,24 +131,14 @@ router.post('/single', [
 
         const result = await insert('media_files', mediaData);
 
-        const response = {
+        res.json({
             message: 'File uploaded successfully',
             media: {
                 id: result.id,
                 ...mediaData,
                 url: `/uploads/${relativePath}`
             }
-        };
-        
-        console.log('✅ Upload successful:', {
-            originalPath: file.path,
-            processedPath: processedFilePath,
-            relativePath: relativePath,
-            finalUrl: `/uploads/${relativePath}`,
-            fileExists: fs.existsSync(processedFilePath)
         });
-        
-        res.json(response);
 
     } catch (error) {
         console.error('Upload error:', error);
