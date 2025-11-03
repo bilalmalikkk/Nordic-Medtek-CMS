@@ -175,15 +175,15 @@ router.post('/migrate-order', [authenticateToken, requireAdmin], async (req, res
             { slug: 'trygghet-og-fallsikring', sortOrder: 1, name: 'Trygghet og fallsikring' },
             { slug: 'alarm-knapp-og-varsling', sortOrder: 2, name: 'Alarm knapp og varsling' },
             { slug: 'medisinsk-oppfolging', sortOrder: 3, name: 'Medisinsk oppfølging' },
-            { slug: 'cameras', sortOrder: 4, name: 'Cameras' },
-            { slug: 'communication', sortOrder: 5, name: 'Communication' }
+            { slug: 'cameras', sortOrder: 4, name: 'Kamera' },
+            { slug: 'communication', sortOrder: 5, name: 'Kommunikasjon' }
         ];
         
         const results = [];
         
         for (const { slug, sortOrder, name } of categoryOrderUpdates) {
-            const updateQuery = `UPDATE categories SET sort_order = ? WHERE slug = ?`;
-            const result = await run(updateQuery, [sortOrder, slug]);
+            const updateQuery = `UPDATE categories SET sort_order = ?, name = ? WHERE slug = ?`;
+            const result = await run(updateQuery, [sortOrder, name, slug]);
             results.push({
                 category: name,
                 slug: slug,
