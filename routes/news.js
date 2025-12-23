@@ -146,14 +146,21 @@ const createNews = async (req, res) => {
             counter++;
         }
 
+        // Convert date to ISO format if it's in YYYY-MM-DD format
+        let formattedDate = date || new Date().toISOString();
+        if (formattedDate && /^\d{4}-\d{2}-\d{2}$/.test(formattedDate)) {
+            // Convert YYYY-MM-DD to ISO 8601
+            formattedDate = `${formattedDate}T00:00:00.000Z`;
+        }
+
         const newsData = {
             title,
             slug,
-            description,
-            content,
+            description: description || null,
+            content: content || null,
             image_key: image_key || null,
             image_url: image_url || null,
-            date: date || new Date().toISOString(),
+            date: formattedDate,
             status,
             language,
             link: link || null
@@ -263,7 +270,14 @@ router.post('/', [
     authenticateToken,
     requireAdmin,
     body('title').notEmpty().withMessage('Title is required'),
-    body('date').optional().isISO8601().withMessage('Date must be a valid ISO 8601 date'),
+    body('date').optional().custom((value) => {
+        // Accept both ISO 8601 and YYYY-MM-DD formats
+        if (!value) return true;
+        const isoDate = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value);
+        const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+        if (isoDate || dateOnly) return true;
+        throw new Error('Date must be in ISO 8601 or YYYY-MM-DD format');
+    }),
     body('status').optional().isIn(['DRAFT', 'PUBLISHED', 'ARCHIVED']).withMessage('Invalid status'),
     body('language').optional().isIn(['no', 'en']).withMessage('Language must be "no" or "en"')
 ], createNews);
