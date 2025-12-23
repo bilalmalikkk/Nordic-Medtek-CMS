@@ -168,14 +168,34 @@ router.post('/single', [
         // Save to database
         // Calculate relative path - handle both absolute and relative paths
         let relativePath;
-        if (path.isAbsolute(processedFilePath)) {
-            relativePath = path.relative(uploadsDir, processedFilePath);
-        } else {
-            relativePath = processedFilePath;
+        try {
+            if (path.isAbsolute(processedFilePath)) {
+                relativePath = path.relative(uploadsDir, processedFilePath);
+            } else {
+                relativePath = processedFilePath;
+            }
+            
+            // Normalize path separators for cross-platform compatibility
+            relativePath = relativePath.replace(/\\/g, '/');
+            
+            // Ensure path doesn't start with / (for URL construction)
+            if (relativePath.startsWith('/')) {
+                relativePath = relativePath.substring(1);
+            }
+        } catch (pathError) {
+            console.error('❌ Path calculation error:', pathError);
+            // Fallback: use filename only
+            relativePath = fileType === 'image' 
+                ? `images/${file.filename}` 
+                : `documents/${file.filename}`;
         }
         
-        // Normalize path separators for cross-platform compatibility
-        relativePath = relativePath.replace(/\\/g, '/');
+        console.log('📁 File paths:', {
+            processedFilePath,
+            uploadsDir,
+            relativePath,
+            fileExists: fs.existsSync(processedFilePath)
+        });
         
         const mediaData = {
             filename: file.filename,
@@ -187,7 +207,9 @@ router.post('/single', [
             alt_text: alt_text || file.originalname
         };
 
+        console.log('💾 Saving to database:', mediaData);
         const result = await insert('media_files', mediaData);
+        console.log('✅ Saved to database with ID:', result.id);
 
         // Construct URL - ensure it starts with /
         const fileUrl = relativePath.startsWith('/') 
