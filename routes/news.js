@@ -111,7 +111,11 @@ const createNews = async (req, res) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-            return res.status(400).json({ errors: errors.array() });
+            console.error('Validation errors:', errors.array());
+            return res.status(400).json({ 
+                error: 'Validation failed',
+                errors: errors.array() 
+            });
         }
 
         const {
@@ -125,6 +129,15 @@ const createNews = async (req, res) => {
             language = 'no',
             link
         } = req.body;
+
+        console.log('Creating news with data:', {
+            title,
+            date,
+            status,
+            language,
+            hasImageUrl: !!image_url,
+            hasImageKey: !!image_key
+        });
 
         // Generate slug from title
         const slugSource = title || 'untitled';
