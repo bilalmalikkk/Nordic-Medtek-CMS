@@ -47,6 +47,8 @@ const corsOptions = {
             'https://nordic-medtek.vercel.app',
             'https://www.nordicmedtek.no',
             'https://nordicmedtek.no',
+            'https://nvm-group-mjt9.vercel.app',
+            'https://rvm-group.vercel.app',
             process.env.FRONTEND_URL
         ].filter(Boolean); // Remove undefined values
         
