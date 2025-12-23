@@ -139,6 +139,23 @@ INSERT OR IGNORE INTO settings (setting_key, setting_value, setting_type, descri
 ('max_file_size', '10485760', 'number', 'Maximum file upload size in bytes (10MB)'),
 ('allowed_file_types', '["image/jpeg", "image/png", "image/gif", "application/pdf", "application/msword"]', 'json', 'Allowed file types for uploads');
 
+-- News table for news articles
+CREATE TABLE IF NOT EXISTS news (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    description TEXT,
+    content TEXT,
+    image_key VARCHAR(100),
+    image_url TEXT,
+    date DATETIME NOT NULL,
+    status VARCHAR(20) DEFAULT 'DRAFT',
+    language VARCHAR(10) DEFAULT 'no',
+    link TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
@@ -146,3 +163,6 @@ CREATE INDEX IF NOT EXISTS idx_products_featured ON products(is_featured);
 CREATE INDEX IF NOT EXISTS idx_products_sorting ON products(sorting);
 CREATE INDEX IF NOT EXISTS idx_products_slug ON products(slug);
 CREATE INDEX IF NOT EXISTS idx_products_item_number ON products(item_number);
+CREATE INDEX IF NOT EXISTS idx_news_status ON news(status);
+CREATE INDEX IF NOT EXISTS idx_news_language ON news(language);
+CREATE INDEX IF NOT EXISTS idx_news_date ON news(date);

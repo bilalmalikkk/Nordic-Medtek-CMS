@@ -22,6 +22,7 @@ import settingsRoutes from './routes/settings.js';
 import uploadRoutes from './routes/upload.js';
 import importRoutes from './routes/import.js';
 import contactRoutes from './routes/contact.js';
+import newsRoutes from './routes/news.js';
 
 import { initializeDatabase } from './database/init.js';
 import runMigrations from './database/migrate.js';
@@ -114,6 +115,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/contact', contactRoutes);
+app.use('/api/news', newsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

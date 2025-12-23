@@ -25,7 +25,8 @@ async function runMigrations() {
             checkAndAddColumn(db, 'products', 'datasheet_url', 'TEXT'),
             checkAndAddColumn(db, 'products', 'detailed_description', 'TEXT'),
             updateCategoryNames(db),
-            updateCategoryOrder(db)
+            updateCategoryOrder(db),
+            createNewsTable(db)
         ])
         .then(() => {
             console.log('✅ Database migrations completed successfully');
@@ -141,6 +142,49 @@ function updateCategoryOrder(db) {
                     }
                 }
             });
+        });
+    });
+}
+
+function createNewsTable(db) {
+    return new Promise((resolve, reject) => {
+        console.log('  + Creating news table...');
+        
+        const createTableQuery = `
+            CREATE TABLE IF NOT EXISTS news (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(255) NOT NULL,
+                slug VARCHAR(255) UNIQUE NOT NULL,
+                description TEXT,
+                content TEXT,
+                image_key VARCHAR(100),
+                image_url TEXT,
+                date DATETIME NOT NULL,
+                status VARCHAR(20) DEFAULT 'DRAFT',
+                language VARCHAR(10) DEFAULT 'no',
+                link TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `;
+        
+        db.run(createTableQuery, (err) => {
+            if (err) {
+                console.error('  ✗ Failed to create news table:', err.message);
+                reject(err);
+            } else {
+                console.log('  ✓ News table created successfully');
+                
+                // Create index for better performance
+                db.run('CREATE INDEX IF NOT EXISTS idx_news_status ON news(status)', (idxErr) => {
+                    if (idxErr) {
+                        console.warn('  ⚠ Could not create news status index:', idxErr.message);
+                    } else {
+                        console.log('  ✓ News status index created');
+                    }
+                    resolve();
+                });
+            }
         });
     });
 }
