@@ -15,17 +15,30 @@ const router = express.Router();
 
 // Ensure upload directories exist
 // Use persistent volume subdirectory in production, local uploads in development
+// Must match the path used in server.js
 const uploadsDir = process.env.NODE_ENV === 'production' 
     ? '/data/uploads' 
-    : path.join(__dirname, '../../../uploads');
+    : path.join(__dirname, '../uploads');
 const imagesDir = path.join(uploadsDir, 'images');
 const documentsDir = path.join(uploadsDir, 'documents');
 
+// Ensure upload directories exist with error handling
 [uploadsDir, imagesDir, documentsDir].forEach(dir => {
-    if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+    try {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+            console.log(`📁 Created upload directory: ${dir}`);
+        }
+    } catch (error) {
+        console.error(`❌ Failed to create directory ${dir}:`, error);
+        throw new Error(`Cannot create upload directory: ${dir}. Check permissions.`);
     }
 });
+
+console.log('📁 Upload directories configured:');
+console.log('  - Uploads:', uploadsDir);
+console.log('  - Images:', imagesDir);
+console.log('  - Documents:', documentsDir);
 
 // Configure multer storage
 const storage = multer.diskStorage({
@@ -97,28 +110,57 @@ router.post('/single', [
                 const processedFileName = `processed-${path.basename(file.filename)}`;
                 const processedPath = path.join(path.dirname(file.path), processedFileName);
                 
-                // Resize and optimize image
-                await sharp(file.path)
-                    .resize(1200, 1200, { 
-                        fit: 'inside',
-                        withoutEnlargement: true
-                    })
-                    .jpeg({ quality: 85 })
-                    .png({ quality: 85 })
-                    .toFile(processedPath);
+                // Get image format
+                const image = sharp(file.path);
+                const metadata = await image.metadata();
+                const format = metadata.format;
+                
+                // Resize and optimize image based on format
+                let sharpPipeline = image.resize(1200, 1200, { 
+                    fit: 'inside',
+                    withoutEnlargement: true
+                });
+                
+                // Apply format-specific optimization
+                if (format === 'jpeg' || format === 'jpg') {
+                    sharpPipeline = sharpPipeline.jpeg({ quality: 85 });
+                } else if (format === 'png') {
+                    sharpPipeline = sharpPipeline.png({ quality: 85 });
+                } else if (format === 'webp') {
+                    sharpPipeline = sharpPipeline.webp({ quality: 85 });
+                } else {
+                    // For other formats, convert to JPEG
+                    sharpPipeline = sharpPipeline.jpeg({ quality: 85 });
+                }
+                
+                await sharpPipeline.toFile(processedPath);
 
                 // Remove original file
-                fs.unlinkSync(file.path);
+                if (fs.existsSync(file.path)) {
+                    fs.unlinkSync(file.path);
+                }
                 processedFilePath = processedPath;
                 file.filename = processedFileName;
             } catch (error) {
                 console.error('Image processing error:', error);
+                console.error('Image processing error stack:', error.stack);
                 // Continue with original file if processing fails
+                // Don't throw error, just use original file
             }
         }
 
         // Save to database
-        const relativePath = path.relative(uploadsDir, processedFilePath);
+        // Calculate relative path - handle both absolute and relative paths
+        let relativePath;
+        if (path.isAbsolute(processedFilePath)) {
+            relativePath = path.relative(uploadsDir, processedFilePath);
+        } else {
+            relativePath = processedFilePath;
+        }
+        
+        // Normalize path separators for cross-platform compatibility
+        relativePath = relativePath.replace(/\\/g, '/');
+        
         const mediaData = {
             filename: file.filename,
             original_name: file.originalname,
@@ -131,20 +173,27 @@ router.post('/single', [
 
         const result = await insert('media_files', mediaData);
 
+        // Construct URL - ensure it starts with /
+        const fileUrl = relativePath.startsWith('/') 
+            ? `/uploads${relativePath}` 
+            : `/uploads/${relativePath}`;
+
         res.json({
             message: 'File uploaded successfully',
             media: {
                 id: result.id,
                 ...mediaData,
-                url: `/uploads/${relativePath}`
+                url: fileUrl
             }
         });
 
     } catch (error) {
         console.error('Upload error:', error);
+        console.error('Upload error stack:', error.stack);
         res.status(500).json({ 
             error: 'Upload failed',
-            message: error.message
+            message: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
