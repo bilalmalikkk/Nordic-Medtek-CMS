@@ -5,21 +5,35 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all news (public route)
+// Get all news (public route, optional auth for admin)
 const getNews = async (req, res) => {
     try {
         const {
             page = 1,
             limit = 100,
-            status = 'PUBLISHED', // Default to published for public
+            status,
             language,
             sort = 'date',
-            order = 'DESC'
+            order = 'DESC',
+            all = false // Query param to show all statuses (admin only)
         } = req.query;
 
         const offset = (page - 1) * limit;
-        let whereConditions = ['status = ?'];
-        let queryParams = [status];
+        let whereConditions = [];
+        let queryParams = [];
+        
+        // If status is provided and not empty, filter by it
+        if (status && status !== '') {
+            whereConditions.push('status = ?');
+            queryParams.push(status);
+        } else if (all === 'true' || all === true) {
+            // If 'all' parameter is true, show all statuses (admin feature)
+            // No status filter added
+        } else {
+            // Default to PUBLISHED for public access
+            whereConditions.push('status = ?');
+            queryParams.push('PUBLISHED');
+        }
 
         // Filter by language if provided
         if (language) {
@@ -27,7 +41,7 @@ const getNews = async (req, res) => {
             queryParams.push(language);
         }
 
-        const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
         // Build ORDER BY clause
         const validSortFields = ['date', 'created_at', 'updated_at', 'title'];
