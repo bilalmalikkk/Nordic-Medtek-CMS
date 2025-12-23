@@ -103,10 +103,15 @@ router.post('/single', [
             fileType = 'image';
         }
 
-        // Process image if it's an image
+        // Process image if it's an image (optional - skip if Sharp fails)
         let processedFilePath = file.path;
         if (fileType === 'image') {
             try {
+                // Check if Sharp is available and file is readable
+                if (!fs.existsSync(file.path)) {
+                    throw new Error('Uploaded file not found');
+                }
+
                 const processedFileName = `processed-${path.basename(file.filename)}`;
                 const processedPath = path.join(path.dirname(file.path), processedFileName);
                 
@@ -135,17 +140,28 @@ router.post('/single', [
                 
                 await sharpPipeline.toFile(processedPath);
 
-                // Remove original file
-                if (fs.existsSync(file.path)) {
-                    fs.unlinkSync(file.path);
+                // Verify processed file exists before removing original
+                if (fs.existsSync(processedPath)) {
+                    // Remove original file
+                    if (fs.existsSync(file.path)) {
+                        fs.unlinkSync(file.path);
+                    }
+                    processedFilePath = processedPath;
+                    file.filename = processedFileName;
+                    console.log('✅ Image processed successfully:', processedPath);
+                } else {
+                    console.warn('⚠️  Processed file not created, using original');
                 }
-                processedFilePath = processedPath;
-                file.filename = processedFileName;
             } catch (error) {
-                console.error('Image processing error:', error);
-                console.error('Image processing error stack:', error.stack);
+                console.error('❌ Image processing error:', error.message);
+                console.error('❌ Error details:', {
+                    filePath: file.path,
+                    fileExists: fs.existsSync(file.path),
+                    error: error.message
+                });
                 // Continue with original file if processing fails
-                // Don't throw error, just use original file
+                // This is not a fatal error - we can still use the original file
+                console.log('ℹ️  Using original file without processing');
             }
         }
 
@@ -188,12 +204,28 @@ router.post('/single', [
         });
 
     } catch (error) {
-        console.error('Upload error:', error);
-        console.error('Upload error stack:', error.stack);
+        console.error('❌ Upload error:', error);
+        console.error('❌ Upload error message:', error.message);
+        console.error('❌ Upload error stack:', error.stack);
+        console.error('❌ Upload context:', {
+            hasFile: !!req.file,
+            fileName: req.file?.originalname,
+            filePath: req.file?.path,
+            uploadsDir,
+            imagesDir,
+            documentsDir
+        });
+        
         res.status(500).json({ 
             error: 'Upload failed',
             message: error.message,
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            details: process.env.NODE_ENV === 'development' ? {
+                stack: error.stack,
+                uploadsDir,
+                imagesDir,
+                documentsDir,
+                filePath: req.file?.path
+            } : 'Check server logs for details'
         });
     }
 });
