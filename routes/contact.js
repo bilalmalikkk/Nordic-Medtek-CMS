@@ -275,6 +275,38 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
         command: emailError.command,
         response: emailError.response
       });
+      
+      // Log the submission so it's not lost (CRITICAL - don't lose form data)
+      console.log('📝 Contact Form Data (email failed - saved to logs):');
+      console.log('Name:', name);
+      console.log('Email:', email);
+      console.log('Phone:', phone || 'Not provided');
+      console.log('Message:', message);
+      console.log('Timestamp:', new Date().toISOString());
+      
+      // Check if it's a connection/timeout error
+      const isConnectionError = 
+        emailError.message?.includes('timeout') ||
+        emailError.message?.includes('Connection') ||
+        emailError.message?.includes('ECONNREFUSED') ||
+        emailError.message?.includes('ETIMEDOUT') ||
+        emailError.code === 'ECONNREFUSED' ||
+        emailError.code === 'ETIMEDOUT';
+      
+      if (isConnectionError) {
+        // For connection errors, return success but log the issue
+        // This way the form doesn't break and data is saved in logs
+        console.warn('⚠️  SMTP connection failed - submission logged but email not sent');
+        console.warn('This is likely due to Railway network restrictions blocking SMTP connections.');
+        
+        return res.json({
+          success: true,
+          message: 'Contact form submitted successfully (saved to logs)',
+          warning: 'Email not sent - SMTP connection timeout. Check Railway logs for submission details.'
+        });
+      }
+      
+      // For other errors (authentication, etc.), still throw but log first
       console.error('SMTP Config:', {
         host: process.env.SMTP_HOST || 'mail.itpays.no',
         port: process.env.SMTP_PORT || '587',
@@ -282,14 +314,6 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
         hasPassword: !!process.env.SMTP_PASS
       });
       
-      // Log the submission so it's not lost
-      console.log('📝 Contact Form Data (email failed):');
-      console.log('Name:', name);
-      console.log('Email:', email);
-      console.log('Phone:', phone || 'Not provided');
-      console.log('Message:', message);
-      
-      // Return a more specific error
       throw new Error(`Email sending failed: ${emailError.message || emailError.code || 'Unknown SMTP error'}`);
     }
 
