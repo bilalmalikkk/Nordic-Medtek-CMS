@@ -145,6 +145,9 @@ const rvmContactValidation = [
 ];
 
 router.post('/rvm-group', rvmContactValidation, async (req, res) => {
+  // Extract data early so it's available in catch block
+  const { name, email, phone, message } = req.body || {};
+  
   try {
     // Check validation errors
     const errors = validationResult(req);
@@ -155,8 +158,6 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
         errors: errors.array()
       });
     }
-
-    const { name, email, phone, message } = req.body;
 
     // Create email content
     const emailContent = `
@@ -261,10 +262,10 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
     
     // Log the contact form data so it's not lost
     console.error('📝 Contact form data (not sent):', {
-      name,
-      email,
-      phone,
-      message: message?.substring(0, 100) + '...'
+      name: name || 'N/A',
+      email: email || 'N/A',
+      phone: phone || 'N/A',
+      message: message ? (message.substring(0, 100) + '...') : 'N/A'
     });
     
     // Provide more detailed error in response for debugging

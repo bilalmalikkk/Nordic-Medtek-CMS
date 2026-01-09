@@ -44,6 +44,8 @@ const corsOptions = {
             'https://localhost:5173',
             'http://localhost:3000',
             'https://localhost:3000',
+            'http://127.0.0.1:5173',
+            'http://127.0.0.1:3000',
             'https://nordic-medtek.vercel.app',
             'https://www.nordicmedtek.no',
             'https://nordicmedtek.no',
@@ -52,12 +54,17 @@ const corsOptions = {
             process.env.FRONTEND_URL
         ].filter(Boolean); // Remove undefined values
         
+        // Also allow any localhost origin in development
+        if (process.env.NODE_ENV === 'development' && origin.includes('localhost')) {
+            return callback(null, true);
+        }
+        
         if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
             console.log('⚠️  CORS blocked origin:', origin);
             console.log('✅ Allowed origins:', allowedOrigins);
-            callback(null, false);
+            callback(new Error('Not allowed by CORS'));
         }
     },
     credentials: true,
