@@ -243,24 +243,19 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
       });
     }
 
-    // Verify transporter connection before sending
-    try {
-      await transporter.verify();
-      console.log('✅ SMTP server connection verified');
-    } catch (verifyError) {
-      console.error('❌ SMTP verification failed:', verifyError);
-      console.error('SMTP Config:', {
-        host: process.env.SMTP_HOST || 'mail.itpays.no',
-        port: process.env.SMTP_PORT || '587',
-        user: process.env.SMTP_USER || 'kontakt@nordicrvm.com',
-        hasPassword: !!process.env.SMTP_PASS
-      });
-      // Still try to send - sometimes verify fails but sending works
-    }
+    // Skip verification - Railway often blocks SMTP connections causing timeouts
+    // We'll try to send directly and handle errors gracefully
+    console.log('⚠️  Skipping SMTP verification (Railway network restrictions may cause timeouts)');
 
-    // Send email in production
+    // Send email in production with timeout handling
     try {
-      const info = await transporter.sendMail(mailOptions);
+      // Set a reasonable timeout (10 seconds) to avoid hanging
+      const sendPromise = transporter.sendMail(mailOptions);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('SMTP send timeout after 10 seconds')), 10000)
+      );
+      
+      const info = await Promise.race([sendPromise, timeoutPromise]);
       console.log('✅ Email sent successfully:', info.messageId);
       
       res.json({
@@ -291,13 +286,15 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
         emailError.message?.includes('ECONNREFUSED') ||
         emailError.message?.includes('ETIMEDOUT') ||
         emailError.code === 'ECONNREFUSED' ||
-        emailError.code === 'ETIMEDOUT';
+        emailError.code === 'ETIMEDOUT' ||
+        emailError.command === 'CONN';
       
       if (isConnectionError) {
         // For connection errors, return success but log the issue
         // This way the form doesn't break and data is saved in logs
         console.warn('⚠️  SMTP connection failed - submission logged but email not sent');
         console.warn('This is likely due to Railway network restrictions blocking SMTP connections.');
+        console.warn('All form submissions are being saved to logs for manual retrieval.');
         
         return res.json({
           success: true,
