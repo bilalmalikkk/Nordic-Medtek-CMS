@@ -224,21 +224,67 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
       });
     }
 
-    // Send email in production
-    await transporter.sendMail(mailOptions);
+    // Verify transporter connection before sending
+    try {
+      await transporter.verify();
+      console.log('✅ SMTP server connection verified');
+    } catch (verifyError) {
+      console.error('❌ SMTP verification failed:', verifyError);
+      // Continue anyway - sometimes verify fails but sending works
+    }
 
-    res.json({
-      success: true,
-      message: 'Contact form submitted successfully'
-    });
+    // Send email in production
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log('✅ Email sent successfully:', info.messageId);
+      
+      res.json({
+        success: true,
+        message: 'Contact form submitted successfully'
+      });
+    } catch (emailError) {
+      console.error('❌ Email sending failed:', emailError);
+      console.error('SMTP Config:', {
+        host: process.env.SMTP_HOST || 'mail.itpays.no',
+        port: process.env.SMTP_PORT || '587',
+        user: process.env.SMTP_USER || 'kontakt@nordicrvm.com',
+        hasPassword: !!process.env.SMTP_PASS
+      });
+      
+      // Return a more specific error
+      throw new Error(`Email sending failed: ${emailError.message}`);
+    }
 
   } catch (error) {
-    console.error('RVM Group Contact form error:', error);
-    res.status(500).json({
+    console.error('❌ RVM Group Contact form error:', error);
+    console.error('Error stack:', error.stack);
+    
+    // Log the contact form data so it's not lost
+    console.error('📝 Contact form data (not sent):', {
+      name,
+      email,
+      phone,
+      message: message?.substring(0, 100) + '...'
+    });
+    
+    // Provide more detailed error in response for debugging
+    const errorResponse = {
       success: false,
       message: 'Failed to submit contact form',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
+      error: error.message || 'Unknown error'
+    };
+    
+    // Include error details in development
+    if (process.env.NODE_ENV === 'development') {
+      errorResponse.details = {
+        stack: error.stack,
+        smtpConfigured: !!process.env.SMTP_HOST,
+        smtpUserSet: !!process.env.SMTP_USER,
+        smtpPassSet: !!process.env.SMTP_PASS
+      };
+    }
+    
+    res.status(500).json(errorResponse);
   }
 });
 

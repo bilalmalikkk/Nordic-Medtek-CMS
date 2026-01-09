@@ -25,8 +25,8 @@ const documentsDir = path.join(uploadsDir, 'documents');
 // Ensure upload directories exist with error handling
 [uploadsDir, imagesDir, documentsDir].forEach(dir => {
     try {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
             console.log(`📁 Created upload directory: ${dir}`);
         }
     } catch (error) {
@@ -122,8 +122,8 @@ router.post('/single', [
                 
                 // Resize and optimize image based on format
                 let sharpPipeline = image.resize(1200, 1200, { 
-                    fit: 'inside',
-                    withoutEnlargement: true
+                        fit: 'inside',
+                        withoutEnlargement: true
                 });
                 
                 // Apply format-specific optimization
@@ -142,12 +142,12 @@ router.post('/single', [
 
                 // Verify processed file exists before removing original
                 if (fs.existsSync(processedPath)) {
-                    // Remove original file
+                // Remove original file
                     if (fs.existsSync(file.path)) {
-                        fs.unlinkSync(file.path);
+                fs.unlinkSync(file.path);
                     }
-                    processedFilePath = processedPath;
-                    file.filename = processedFileName;
+                processedFilePath = processedPath;
+                file.filename = processedFileName;
                     console.log('✅ Image processed successfully:', processedPath);
                 } else {
                     console.warn('⚠️  Processed file not created, using original');
