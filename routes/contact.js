@@ -6,7 +6,22 @@ const router = express.Router();
 
 // Email configuration
 const createTransporter = () => {
-  // ITpays SMTP configuration
+  // Check if SendGrid is configured (recommended for Railway)
+  if (process.env.SENDGRID_API_KEY) {
+    console.log('📧 Using SendGrid for email delivery');
+    return nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false,
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY
+      }
+    });
+  }
+  
+  // Fallback to ITpays SMTP configuration
+  console.log('📧 Using ITpays SMTP for email delivery');
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'mail.itpays.no',
     port: parseInt(process.env.SMTP_PORT || '587'),
