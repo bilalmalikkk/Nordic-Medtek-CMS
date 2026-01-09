@@ -225,13 +225,37 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
       });
     }
 
+    // Check if SMTP is configured
+    const smtpPassword = process.env.SMTP_PASS;
+    if (!smtpPassword || smtpPassword.trim() === '') {
+      console.error('⚠️  SMTP_PASS not configured. Logging submission to console only.');
+      console.log('📧 Contact Form Submission (SMTP not configured):');
+      console.log('Name:', name);
+      console.log('Email:', email);
+      console.log('Phone:', phone || 'Not provided');
+      console.log('Message:', message);
+      
+      // Return success but note that email wasn't sent
+      return res.json({
+        success: true,
+        message: 'Contact form submitted successfully (logged only - SMTP not configured)',
+        warning: 'Email not sent - SMTP configuration missing'
+      });
+    }
+
     // Verify transporter connection before sending
     try {
       await transporter.verify();
       console.log('✅ SMTP server connection verified');
     } catch (verifyError) {
       console.error('❌ SMTP verification failed:', verifyError);
-      // Continue anyway - sometimes verify fails but sending works
+      console.error('SMTP Config:', {
+        host: process.env.SMTP_HOST || 'mail.itpays.no',
+        port: process.env.SMTP_PORT || '587',
+        user: process.env.SMTP_USER || 'kontakt@nordicrvm.com',
+        hasPassword: !!process.env.SMTP_PASS
+      });
+      // Still try to send - sometimes verify fails but sending works
     }
 
     // Send email in production
@@ -245,6 +269,12 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
       });
     } catch (emailError) {
       console.error('❌ Email sending failed:', emailError);
+      console.error('Error details:', {
+        message: emailError.message,
+        code: emailError.code,
+        command: emailError.command,
+        response: emailError.response
+      });
       console.error('SMTP Config:', {
         host: process.env.SMTP_HOST || 'mail.itpays.no',
         port: process.env.SMTP_PORT || '587',
@@ -252,8 +282,15 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
         hasPassword: !!process.env.SMTP_PASS
       });
       
+      // Log the submission so it's not lost
+      console.log('📝 Contact Form Data (email failed):');
+      console.log('Name:', name);
+      console.log('Email:', email);
+      console.log('Phone:', phone || 'Not provided');
+      console.log('Message:', message);
+      
       // Return a more specific error
-      throw new Error(`Email sending failed: ${emailError.message}`);
+      throw new Error(`Email sending failed: ${emailError.message || emailError.code || 'Unknown SMTP error'}`);
     }
 
   } catch (error) {
@@ -275,13 +312,19 @@ router.post('/rvm-group', rvmContactValidation, async (req, res) => {
       error: error.message || 'Unknown error'
     };
     
+    // Always include SMTP config status in error response (helps with debugging)
+    errorResponse.smtpStatus = {
+      host: process.env.SMTP_HOST || 'not set',
+      port: process.env.SMTP_PORT || 'not set',
+      user: process.env.SMTP_USER || 'not set',
+      hasPassword: !!process.env.SMTP_PASS,
+      nodeEnv: process.env.NODE_ENV || 'not set'
+    };
+    
     // Include error details in development
     if (process.env.NODE_ENV === 'development') {
       errorResponse.details = {
-        stack: error.stack,
-        smtpConfigured: !!process.env.SMTP_HOST,
-        smtpUserSet: !!process.env.SMTP_USER,
-        smtpPassSet: !!process.env.SMTP_PASS
+        stack: error.stack
       };
     }
     
