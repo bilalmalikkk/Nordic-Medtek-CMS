@@ -6,7 +6,24 @@ const router = express.Router();
 
 // Email configuration
 const createTransporter = () => {
-  // Check if SendGrid is configured (recommended for Railway)
+  // Priority 1: Postfix relay (for Office 365 forwarding)
+  if (process.env.POSTFIX_HOST) {
+    console.log('📧 Using Postfix relay for email delivery');
+    return nodemailer.createTransport({
+      host: process.env.POSTFIX_HOST,
+      port: parseInt(process.env.POSTFIX_PORT || '587'),
+      secure: process.env.POSTFIX_SECURE === 'true', // true for 465, false for 587
+      auth: process.env.POSTFIX_USER ? {
+        user: process.env.POSTFIX_USER,
+        pass: process.env.POSTFIX_PASS || ''
+      } : undefined, // Postfix can be configured without auth
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  }
+  
+  // Priority 2: SendGrid (recommended for Railway)
   if (process.env.SENDGRID_API_KEY) {
     console.log('📧 Using SendGrid for email delivery');
     return nodemailer.createTransport({
